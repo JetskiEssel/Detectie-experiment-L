@@ -219,13 +219,13 @@ function runTrial(){
       phase = "sprite";
     }
 
-    if(phase === "sprite" && now() - phaseTimes.prime >= 1500){
+    if(phase === "sprite" && now() - phaseTimes.prime >= 483){
       stim.textContent = rand(MASKS);
       phaseTimes.mask2 = now();
       phase = "mask2";
     }
 
-    if(phase === "mask2" && elapsed >= 2500){
+    if(phase === "mask2" && elapsed >= 1000){
       stim.textContent = target;
       phaseTimes.target = now();
       phase = "target";
