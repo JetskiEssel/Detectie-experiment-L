@@ -1,0 +1,373 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<title>Visuele detectietaak</title>
+<style>
+  html,body{margin:0;padding:0;width:100%;height:100%;background:#fff;color:#000;font-family:Arial,sans-serif;overflow:hidden;-webkit-user-select:none;user-select:none}
+  #app{width:100vw;height:100vh;height:100dvh;display:flex;align-items:center;justify-content:center;box-sizing:border-box}
+  .screen{width:100%;height:100%;display:flex;align-items:center;justify-content:center;box-sizing:border-box;padding:5vh 6vw}
+  .instructions{max-width:900px;font-size:clamp(18px,2.8vw,28px);line-height:1.45;text-align:left}
+  .instructions p{margin:0 0 1.2em}
+  .center{text-align:center}
+  button{font-size:24px;padding:16px 28px;border:1px solid #555;border-radius:10px;background:#f2f2f2;color:#000}
+  button:active{background:#ddd}
+  #stimulus{font-family:"Courier New",monospace;font-size:27px;font-weight:400;line-height:1;white-space:pre}
+  #question{font-size:clamp(24px,4vw,36px);text-align:center}
+  #answerButtons{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;max-width:700px;margin-top:28px}
+  #answerButtons button{min-width:64px}
+  #end{font-size:clamp(20px,3vw,30px);text-align:center}
+  #download{margin-top:25px}
+  .hidden{display:none!important}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+"use strict";
+
+const RESULTS_ENDPOINT = 'https://script.google.com/macros/s/AKfycbxjYa-XNwLSHZY4-gV5RL6L0o_8VkKj94oRpNasNlPH9vBo3KrD3aWxmiCVieDbn_GC/exec';
+
+/*
+  iPad/Safari recreation of the supplied Inquisit experiment.
+
+  Original trial structure:
+    frame 1  = mask
+    frame 30 = prime/control
+    frame 31 = mask2
+    frame 61 = target
+  At 60 Hz this corresponds approximately to:
+    mask:       0 ms
+    prime:    483 ms
+    mask2:    500 ms
+    target:  1000 ms
+
+  The target remains until the trial timeout (3000 ms from trial start)
+  or until the next trial begins.
+*/
+
+const MASKS = [
+"UPRNRNWLLPL","YEDRIWJVJFP","CTHAYGXJTMJ","RKRJELHKMIH","QAOUWILZRIA",
+"VYYMCPJRTGY","ELSNRYTCFUE","DDFPULBJUSZ","GKXAPPIMQBM","VTTIJRHAXLW",
+"HILXLVSYKQA","FXHKVQGATEI","JRDNNXERUKX","OZCQZWKLFIK","QPHOMOEZSWB",
+"TXHCDRLKMYL","EWTRWODAODX","YHUWUDVDTFD","NJJEYZFOIKF","VAILIVGJTXW",
+"HJSHHOXPARU","LPLBLYRCKOV","GWEJWZQTLFV","RBFEOCPKSQC","JMNKCPGXYWS",
+"PIYRHOTVGIU","YSUJGEBLZTN","CNXZTVWLCIG","AYSCQOYSZKM","VFSOJMPUUEB",
+"OHPDZHJSKYE","AMEREERTXSL","ZMPJZPBNSMW","KVMUAIHWELK","KHQQKQIJVLU",
+"QNAONTDXMBK","IDLWEIEXGAC","BXGCNGMZNRL","CJCDZRQMKXL","EBOCQGMWJCC",
+"CKFQVNIJXFO","AFTVFEYQZLG","YQODRQGTZUB","THSDPEMEKPX","GMKPBNABGRG",
+"QFXKNGYLNAZ","JWBITKFRPKM","AURCAJXQLIZ","ECASJOBNJZZ","QFZJLGWIFVR",
+"GDJLZUCFMZQ","FREBTPAWUHZ","AQHXSYFOBNZ","QHYTJZHAWES","XGJISCORWGS",
+"VYYHZBZQEER","MSDRKPIUSHY","SGWFRRXXEHW","SRZHJNYACSX","GZEFVUTIWKU",
+"KLWSWCCXLTZ","BBHAMZACCTE","TSCEXSLKPAH","XNYYWRBVAEA","BFORGDNBNEN",
+"QLQBNTBEMFT","YCBAKORZWIW","WZJUQRTAFTN","OTUZFENMEAC","VPQPUEMMSNC",
+"WCOMZHHIMMI","TQRDFJWAOWP","JTAOEDPVMIG","XHAWPRTJBQN","DGZVCWIUFVF",
+"TABJEUDKTTE","ZKVNUVLBARW","DQVPCNVBWNA","OXFLSDHSNUJ","QHXODLWVKMS",
+"FCGOSJLYTFZ","AXMXCHUFYCH","UKEJMDEOQHA","VATYVKFUCHX","ONCHAQBGKOX",
+"QCIIAZQABTE","ILVHZRSPXIW","KZWFCUVLIEB","BBEZXWHDKRF","XZMIJXTWNMP",
+"IWADRBEEHDC","RVZMAGNDUFU","PTNBBVSCTIV","HTYMUFHVCON","PJXQRDMHKEV",
+"CTODGNDUIHY","BVPJAOMGZBG","WGWJTFCIMNH","FOINWBODPRY","GVJXLZRGYGP",
+"HNEDKFDQHPC","PFJXSTXOCNU","OXVCAKPXMDR","ZYYLVMWNBSE","NQIIWIBVIGU",
+"LQLKJIXHLTL","PRXIPXMHHSI","JHPDYAIDPWX","XWYLHCTWRQB","TTEDUCRELBS",
+"NOQUKBZWWOA","OMJKQHEKAIP","DCKBDCSQIAH","SFQFHGIHCCI","VTYZYPRRILP",
+"WDPEFHIATKX","LYKFMJDQCOX","FNSGQYHELVN","RSNHIQJPDMT","SCYQNASSLRF",
+"YNIIMIWQWCW","DGHGJVHKCHS","HOWOBEMRBDJ","IUALVOBBZCY","HVNLFVOVBHD",
+"YQIWLQSAFDC","UPPMHOAPGSG","BQOOIMESNTZ","RVQDGPQRABZ","EQQHYQMTJQZ",
+"EIDBSCWCIIB","HCNECYQYOQL","XJRXAMPGRDS","JPKDXTHBSAA","KAZPAADCKJP",
+"HSAQMHBJRUB","WZHGLFDQEMK","QEDYVEIQKTU","QVFOWAMOBUB","NFJWMXPJKKT",
+"VKXUVBDKAVS","TUYWQQGFWQX","NSQKOZUNDBY","UCRFHEOBBGB","PZKXDZXKIEG",
+"GEZNZWVBUHG","RBRDSNCUQAH","HDFDOWMFOBJ","RUBWHLANJNX","NXVBJGZETPM",
+"DGONWDMKDTD","FQRARLENXBN","VXFNJGIITMD","ICASFUGEPIC","QKJWHEUJLIR",
+"WPWEWMQDGKX","GUENZTJLUCN","YXRBIBOKGYN","GRCTDOLZPCG","KCUESMIWLTD",
+"KVTUZTGKJUQ","QIMTWRZCFEX","LOVEWORBWQB","GXFAYLXBRVU","WIXEATQCUCA",
+"KPGGZCNKDFY","PPJSJRJLLRN","DDDBXPAULVT","MGBSUBXBOEM","IZJMPWMPEVN",
+"ADQFVMLAVXT","QDLGNAYBHQH","STILMHXOERF","QVRUQAOACZZ","XCSMJBYVUQB",
+"MIYLOONRKIW","ZJKVLMMMYCI","DECPQTLDCKU","DREEHGFIBBV","OCYKVFCUWWJ",
+"KGMXHZKQVOH","CKBIFNNEHGR","XFLIJXXKOZB","LRVPMVSFIKR","FMMIAXIPNGJ",
+"HWKATYYXQLV","ZKDAGFIICRX","RZZAYKWDANF","SZKKWWZJTFE","NLYAKOKCJBD",
+"TWNTDYWXZMV","VQOWSKPVCBX","NSXXFACVNMC","CIEJNUYWZXG","AUOFIFMOOHO",
+"ZKWGLVCNNXH","CQAHGHWXIHT","OQFKKCMNGBM","JSNKBDKERKC","GYSXICBHNCG"
+];
+
+const TARGETS = Array.from({length:11}, (_,i) => {
+  const a = Array(12).fill("B");
+  a[i] = "b";
+  return a.join("");
+});
+const BIG = "BBBBBBBBBBBB";
+
+const app = document.getElementById("app");
+const stim = document.createElement("div");
+stim.id = "stimulus";
+
+let condition = null; // "prime" or "control"
+let trial = 0;
+let countSeen = 0;
+let currentTrialData = [];
+let allData = [];
+let trialStart = 0;
+let trialInfo = null;
+let responseResolve = null;
+let experimentStart = null;
+let sessionId = "";
+
+function rand(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
+function now(){ return performance.now(); }
+function clearApp(){ app.innerHTML = ""; }
+
+function showInstructions(){
+  clearApp();
+  const s = document.createElement("div");
+  s.className = "screen";
+  s.innerHTML = `
+    <div class="instructions">
+      <p>Nu volgt een visuele detectie taak. Met deze taak willen we onderzoeken hoe snel, en hoe accuraat, mensen bepaalde kleine afwijkingen kunnen waarnemen.</p>
+      <p>Er wordt zo meteen 20 maal achtereen een rij B's (BBBBBBBB) op het beeld getoond, deze krijg je telkens heel kort te zien. Soms is er in de rij een kleine letter b aanwezig (bijvoorbeeld BBBBBbBB).</p>
+      <p>Na elke 5 maal de rij B's te hebben gezien, wordt je gevraagd hoe vaak er een rij verscheen waarin zich een kleine letter b bevond.</p>
+      <button id="next1">Ga verder</button>
+    </div>`;
+  app.appendChild(s);
+  document.getElementById("next1").onclick = showInstructions2;
+}
+
+function showInstructions2(){
+  clearApp();
+  const s = document.createElement("div");
+  s.className = "screen";
+  s.innerHTML = `
+    <div class="instructions">
+      <p>Om je te helpen met focussen, wordt elke rij B's vooraf gegaan door snel flitsende rijen letters (bijv. HAJEXHJSAS), het zogenaamde fixatie punt.</p>
+      <p>Het enige dat je in deze taak dus hoeft te doen is goed naar het midden van het scherm te kijken waar de rijen letters verschijnen, gevolgd door de rij B's, en goed op te letten en te tellen hoe vaak zich in de rij B's een kleine letter b's bevindt.</p>
+      <p>Wanneer je op een toets drukt volgt de eerste serie van 5.</p>
+      <div class="center"><button id="start">Start</button></div>
+    </div>`;
+  app.appendChild(s);
+  document.getElementById("start").onclick = startExperiment;
+}
+
+function startExperiment(){
+  // Eén vaste conditie: in elke trial verschijnt hetzelfde placeholderwoord.
+  condition = "sprite";
+  sessionId = Date.now().toString(36) + "-" + Math.random().toString(36).slice(2,8);
+  experimentStart = new Date().toISOString();
+  trial = 0; countSeen = 0; allData = [];
+  runTrial();
+}
+
+function nextFrame(callback){
+  requestAnimationFrame(callback);
+}
+
+function waitFrames(n, callback){
+  let k = 0;
+  function f(){
+    k++;
+    if(k >= n) callback();
+    else requestAnimationFrame(f);
+  }
+  requestAnimationFrame(f);
+}
+
+function runTrial(){
+  if(trial >= 20){ showEnd(); return; }
+  trial++;
+
+  const primeSideLeft = Math.random() < 0.5;
+  const target = primeSideLeft ? BIG : rand(TARGETS);
+  // The original had primeleft/primeright, where left => BIG and right => small.
+  // Therefore "small" is the lowercase-b target.
+  const prime = "sprite";
+  const targetType = target === BIG ? "big" : "small";
+  const bPresent = targetType === "small";
+  if(bPresent) countSeen++;
+
+  trialInfo = {
+    trial,
+    condition,
+    prime,
+    target,
+    targetType,
+    bPresent,
+    targetPosition: bPresent ? TARGETS.indexOf(target)+1 : 0,
+    startPerformance: now()
+  };
+
+  clearApp();
+  app.appendChild(stim);
+
+  // Tijdgestuurde volgorde:
+  // mask -> placeholder rond 483 ms -> mask na 50 ms -> target rond 1000 ms.
+  // Zo blijft het placeholderwoord ongeveer 50 ms zichtbaar, onafhankelijk
+  // van de verversingssnelheid van het scherm.
+  const t0 = now();
+  let phaseTimes = {};
+  let phase = "mask";
+
+  stim.textContent = rand(MASKS);
+  phaseTimes.mask = now();
+
+  function draw(){
+    const elapsed = now() - t0;
+
+    if(phase === "mask" && elapsed >= 483){
+      // Toon hier een neutrale letterrij in plaats van het woord "sprite".
+      stim.textContent = rand(MASKS);
+      phaseTimes.prime = now();
+      phase = "sprite";
+    }
+
+    if(phase === "sprite" && now() - phaseTimes.prime >= 33){
+      stim.textContent = rand(MASKS);
+      phaseTimes.mask2 = now();
+      phase = "mask2";
+    }
+
+    if(phase === "mask2" && elapsed >= 1000){
+      stim.textContent = target;
+      phaseTimes.target = now();
+      phase = "target";
+    }
+
+    if(phase !== "target"){
+      requestAnimationFrame(draw);
+    } else {
+      // Het doel blijft hier 500 ms zichtbaar, zoals in de oorspronkelijke versie.
+      setTimeout(()=>{
+        const end = now();
+        allData.push({
+          session: sessionId,
+          condition,
+          trial,
+          prime,
+          target,
+          bPresent: bPresent ? 1 : 0,
+          bPosition: bPresent ? TARGETS.indexOf(target)+1 : 0,
+          maskToPrime_ms: +(phaseTimes.prime-phaseTimes.mask).toFixed(3),
+          primeToMask2_ms: +(phaseTimes.mask2-phaseTimes.prime).toFixed(3),
+          mask2ToTarget_ms: +(phaseTimes.target-phaseTimes.mask2).toFixed(3),
+          trialElapsed_ms: +(end-t0).toFixed(3),
+          timestamp: new Date().toISOString()
+        });
+        if(trial % 5 === 0) showQuestion();
+        else runTrial();
+      }, 500);
+    }
+  }
+  requestAnimationFrame(draw);
+}
+
+function showQuestion(){
+  clearApp();
+  const s = document.createElement("div");
+  s.className = "screen";
+  const q = document.createElement("div");
+  q.className = "center";
+  q.innerHTML = `<div id="question">Hoeveel kleine b's heb je gezien?</div><div id="answerButtons"></div>`;
+  s.appendChild(q);
+  app.appendChild(s);
+
+  const buttons = document.getElementById("answerButtons");
+  for(let i=0;i<=5;i++){
+    const b = document.createElement("button");
+    b.textContent = i;
+    b.onclick = ()=>recordResponse(i);
+    buttons.appendChild(b);
+  }
+}
+
+function recordResponse(value){
+  const groupEnd = trial;
+  const groupStart = groupEnd - 4;
+  const matching = allData.filter(d => d.trial >= groupStart && d.trial <= groupEnd);
+  matching.forEach(d => d.reportedCount = value);
+  allData.forEach(d => { if(d.trial >= groupStart && d.trial <= groupEnd) d.reportedCount=value; });
+  runTrial();
+}
+
+function csvEscape(v){
+  const s = String(v ?? "");
+  return '"' + s.replace(/"/g,'""') + '"';
+}
+function makeCSV(){
+  const headers = [
+    "session","condition","trial","prime","target","bPresent","bPosition",
+    "maskToPrime_ms","primeToMask2_ms","mask2ToTarget_ms","trialElapsed_ms",
+    "reportedCount","timestamp"
+  ];
+  const rows = allData.map(d => headers.map(h=>csvEscape(d[h])).join(","));
+  return headers.join(",")+"\n"+rows.join("\n");
+}
+function downloadCSV(){
+  const blob = new Blob([makeCSV()], {type:"text/csv;charset=utf-8"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href=url; a.download="visuele_detectietaak_"+sessionId+".csv";
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
+
+function submitResults(){
+  const payload = {
+    timestamp: new Date().toISOString(),
+    participant: sessionId,
+    condition,
+    trials: allData
+  };
+
+  // Use a normal HTML form POST to avoid cross-origin fetch/CORS issues.
+  // The form targets a hidden iframe so the participant stays on the experiment page.
+  const iframe = document.createElement("iframe");
+  iframe.name = "results_receiver_" + Date.now();
+  iframe.style.display = "none";
+  document.body.appendChild(iframe);
+
+  const form = document.createElement("form");
+  form.method = "POST";
+  form.action = RESULTS_ENDPOINT;
+  form.target = iframe.name;
+  form.style.display = "none";
+
+  const input = document.createElement("input");
+  input.type = "hidden";
+  input.name = "data";
+  input.value = JSON.stringify(payload);
+
+  form.appendChild(input);
+  document.body.appendChild(form);
+  form.submit();
+
+  // The POST has been handed to the browser. Give Apps Script time to receive it.
+  setTimeout(() => {
+    try { iframe.remove(); form.remove(); } catch(e) {}
+  }, 5000);
+
+  return true;
+}
+
+function showEnd(){
+  const sent = submitResults();
+  clearApp();
+  const s = document.createElement("div");
+  s.className = "screen";
+  s.innerHTML = `
+    <div id="end">
+      Dit is het einde van dit onderdeel.
+      <br><br>
+      ${sent
+        ? "Bedankt dat je mee hebt gedaan!"
+        : "Bedankt. Er kon geen verbinding met de onderzoeksserver worden gemaakt. Neem contact op met de onderzoeker."}
+    </div>`;
+  app.appendChild(s);
+}
+
+// Prevent accidental browser scrolling/gesture interference.
+document.addEventListener("touchmove", e=>e.preventDefault(), {passive:false});
+document.addEventListener("gesturestart", e=>e.preventDefault(), {passive:false});
+
+showInstructions();
+</script>
+</body>
+</html>
