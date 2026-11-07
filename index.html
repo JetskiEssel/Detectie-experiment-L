@@ -150,7 +150,7 @@ function showInstructions2(){
 
 function startExperiment(){
   // Eén vaste conditie: in elke trial verschijnt hetzelfde placeholderwoord.
-  condition = "sprite";
+  condition = "control";
   sessionId = Date.now().toString(36) + "-" + Math.random().toString(36).slice(2,8);
   experimentStart = new Date().toISOString();
   trial = 0; countSeen = 0; allData = [];
@@ -179,7 +179,7 @@ function runTrial(){
   const target = primeSideLeft ? BIG : rand(TARGETS);
   // The original had primeleft/primeright, where left => BIG and right => small.
   // Therefore "small" is the lowercase-b target.
-  const prime = "sprite";
+  const prime = "";
   const targetType = target === BIG ? "big" : "small";
   const bPresent = targetType === "small";
   if(bPresent) countSeen++;
